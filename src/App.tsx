@@ -10,11 +10,10 @@ import {
   CardTitle,
 } from "./components/ui/card";
 import CustomProgressBar from "./progressBar";
-import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
-import axios from "axios";
+import { countLeaveArea } from "./scripts/checkSesnorLeaveArea";
+import { updateThrusterSpeed } from "./scripts/updateThrusterSpeed";
+import SensorModal from "./components/modalSensor";
 
-// Налаштування модального вікна
 Modal.setAppElement("#root");
 
 function App() {
@@ -98,54 +97,6 @@ function App() {
     }
   }, [sensors]);
 
-  const countLeaveArea = (
-    position: number[],
-    waterSpeed: number[],
-    thrusterSpeed: number[]
-  ): string => {
-    const maxPosition = 10000;
-    const epsilon = 1e-10;
-
-    if (
-      position.length !== 3 ||
-      waterSpeed.length !== 3 ||
-      thrusterSpeed.length !== 3
-    ) {
-      return "Invalid input data";
-    }
-
-    const axisSpeed = position.map((_, i) => waterSpeed[i] + thrusterSpeed[i]);
-
-    let minPositiveTime = Infinity;
-
-    for (let i = 0; i < 3; i++) {
-      const distanceToPositiveBoundary = maxPosition - position[i];
-      const distanceToNegativeBoundary = -maxPosition - position[i];
-
-      if (distanceToPositiveBoundary <= 0 || distanceToNegativeBoundary >= 0) {
-        return "0.00";
-      }
-
-      if (Math.abs(axisSpeed[i]) > epsilon) {
-        const timeToPositiveBoundary =
-          distanceToPositiveBoundary / axisSpeed[i];
-        const timeToNegativeBoundary =
-          distanceToNegativeBoundary / axisSpeed[i];
-
-        const timeToReachBoundary = Math.min(
-          timeToPositiveBoundary > 0 ? timeToPositiveBoundary : Infinity,
-          timeToNegativeBoundary > 0 ? timeToNegativeBoundary : Infinity
-        );
-
-        if (timeToReachBoundary > 0 && timeToReachBoundary < minPositiveTime) {
-          minPositiveTime = timeToReachBoundary;
-        }
-      }
-    }
-
-    return minPositiveTime === Infinity ? "Never" : minPositiveTime.toFixed(2);
-  };
-
   const openModal = (sensorName: string) => {
     setSelectedSensorName(sensorName);
   };
@@ -161,22 +112,6 @@ function App() {
     selectedSensorName !== null
       ? sensors.find((sensor) => sensor.name === selectedSensorName)
       : null;
-
-  const updateThrusterSpeed = async (
-    name: string,
-    updateThrusterSpeedDto: any
-  ) => {
-    try {
-      const response = await axios.post(
-        `http://localhost:3000/sensor/${name}/thruster`,
-        updateThrusterSpeedDto
-      );
-      console.log("Успішно оновлено швидкість:", updateThrusterSpeedDto, name);
-      return response.data;
-    } catch (error) {
-      console.error("Помилка при оновленні швидкості:", error);
-    }
-  };
 
   return (
     <div className="m-6 grid grid-cols-4 grid-rows-3 gap-5">
@@ -227,80 +162,17 @@ function App() {
       })}
 
       {selectedSensor && (
-        <Modal
-          isOpen={true}
-          onRequestClose={closeModal}
-          contentLabel="Sensor Details"
-          className="absolute w-svw h-svh flex justify-center items-center"
-        >
-          <div className="relative w-[600px] h-[400px] bg-white flex flex-col border-black border-2 rounded-lg">
-            <h2 className="font-semibold text-6xl text-center">
-              {selectedSensor.name}
-            </h2>
-            <p className="text-center text-xl">
-              {selectedSensor.temperature.toFixed(2)} °C
-            </p>
-            <div className="flex gap-5 my-2 justify-around">
-              <div className="pl-2">
-                <p className="text-green-300">Position</p>
-                <ul>
-                  <li>{selectedSensor.position[0].toFixed(2)}</li>
-                  <li>{selectedSensor.position[1].toFixed(2)}</li>
-                  <li>{selectedSensor.position[2].toFixed(2)}</li>
-                </ul>
-              </div>
-              <div className=" px-2">
-                <p className="text-blue-300">Water Speed</p>
-                <ul>
-                  <li>{selectedSensor.waterSpeed[0].toFixed(2)}</li>
-                  <li>{selectedSensor.waterSpeed[1].toFixed(2)}</li>
-                  <li>{selectedSensor.waterSpeed[2].toFixed(2)}</li>
-                </ul>
-              </div>
-              <div className="pr-2">
-                <p className="text-red-300">Thruster Speed</p>
-                <ul>
-                  <li>{selectedSensor.thrustersSpeed[0].toFixed(2)}</li>
-                  <li>{selectedSensor.thrustersSpeed[1].toFixed(2)}</li>
-                  <li>{selectedSensor.thrustersSpeed[2].toFixed(2)}</li>
-                </ul>
-              </div>
-            </div>
-            <p className="text-xl text-center mt-4">Add speed to thruster:</p>
-            <div className="flex justify-around">
-              <Input
-                name="axisX"
-                type="number"
-                placeholder="Axis: x"
-                className="w-24"
-                value={axisX}
-                onChange={handleInputChange}
-              />
-              <Input
-                name="axisY"
-                type="number"
-                placeholder="Axis: y"
-                className="w-24"
-                value={axisY}
-                onChange={handleInputChange}
-              />
-              <Input
-                name="axisZ"
-                type="number"
-                placeholder="Axis: z"
-                className="w-24"
-                value={axisZ}
-                onChange={handleInputChange}
-              />
-            </div>
-            <Button
-              onClick={() => handleAction(selectedSensor.name)}
-              className="w-32 self-center mt-12"
-            >
-              {isConfirming ? "Confirm" : "Close"}
-            </Button>
-          </div>
-        </Modal>
+        <SensorModal
+          sensor={selectedSensor}
+          isOpen={selectedSensor !== null}
+          onClose={closeModal}
+          onAction={handleAction}
+          axisX={axisX}
+          axisY={axisY}
+          axisZ={axisZ}
+          isConfirming={isConfirming}
+          onInputChange={handleInputChange}
+        />
       )}
     </div>
   );
