@@ -6,7 +6,7 @@ const updateThrusterSpeed = async (
 ) => {
   try {
     const response = await axios.post(
-      `http://localhost:3000/sensor/${name}/thruster`,
+      import.meta.env.VITE_API_URL + `/sensor/${name}/thruster`,
       updateThrusterSpeedDto
     );
     console.log("Успішно оновлено швидкість:", updateThrusterSpeedDto, name);
